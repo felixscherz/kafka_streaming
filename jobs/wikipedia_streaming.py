@@ -2,25 +2,30 @@ from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 from pyspark.sql.functions import *
 
-import sys
-from random import random
-from operator import add
-
 if __name__ == '__main__':
+    # initialize spark session
     spark = SparkSession.\
         builder.\
         appName('SparkWikipediaStreaming').\
         getOrCreate()
-    # Loading data from a JDBC source
-    # df = spark.read\
-    #     .format("jdbc")\
-    #     .option("url", "jdbc:postgresql://postgres:5432/db")\
-    #     .option("dbtable", "clients")\
-    #     .option("user", "user")\
-    #     .option("password", "password")\
-    #     .option('driver', 'org.postgresql.Driver')\
-    #     .load()
+
     spark.sparkContext.setLogLevel("ERROR")
+
+    # lookup foreign key values for regions
+    regions = spark.read\
+            .format("jdbc")\
+            .option("url", "jdbc:postgresql://postgres:5432/wikipedia_events")\
+            .option("dbtable","regions").option("user","user")\
+            .option('driver', 'org.postgresql.Driver')\
+            .option("password", "password")\
+            .load()
+
+    german_id = regions.filter(
+        regions.region == 'germany').first()["region_id"]
+    global_id = regions.filter(regions.region == 'global').first()["region_id"]
+
+
+    # message schema as supplied in example data
     jsonschema = StructType().add("$schema", StringType())\
             .add("id", StringType())\
             .add("namespace", StringType())\
@@ -59,28 +64,44 @@ if __name__ == '__main__':
       .load()
 
     print('connected to kafka')
+
+    # parse kafka message schema
     parsed = df.select(
         from_json(col("value").cast("string"),
                   jsonschema).alias("parsed_value"))\
                           .select("parsed_value.*")
-    print('select expression')
-    parsed.printSchema()
 
-    # get global changes by the minute
-    global_edits = parsed\
-            .groupBy(window("timestamp", "1 minute"))\
-            .count()
+    # separate into regions (germany, global) and aggregate over the last minute
+    edits = parsed\
+            .withColumn("is_germany", col("server_name").rlike(r"de\..*"))\
+            .groupBy("is_germany", window("timestamp", "1 minute"))\
+            .count()\
+            .withColumn("region_id",
+                    when(col("is_germany") == True, lit(german_id))\
+                    .when(col("is_germany") == False, lit(global_id)))\
+            .withColumn("time", col("window.start"))\
+            .select("time", "count", "region_id")
 
-    # for german wikipedia filter by server_name
-    german_edits = parsed\
-            .filter(parsed.server_name.rlike(r"de\..*"))\
-            .groupBy(window("timestamp", "1 minute"))\
-            .count()
+    # define foreachBatch function to write to postgres database
+    def foreach_batch_function(df, epoch_id):
+        '''function requires epoch_id to work with foreachBatch method'''
+        print("writing to db")
+        df.write\
+                .mode("overwrite")\
+                .format("jdbc")\
+                .option("truncate", "true")\
+                .option("url", "jdbc:postgresql://postgres:5432/wikipedia_events")\
+                .option("dbtable","events")\
+                .option("user","user")\
+                .option('driver', 'org.postgresql.Driver')\
+                .option("password", "password").save()
 
-    query = german_edits.writeStream\
-           .format("console")\
-           .outputMode("complete")\
-           .start()
 
-    query.awaitTermination()
+    query_to_db = edits\
+            .writeStream\
+            .foreachBatch(foreach_batch_function)\
+            .outputMode("complete")\
+            .start()
+
+    query_to_db.awaitTermination()
     spark.stop()
