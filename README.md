@@ -9,3 +9,10 @@
 
 get kafka compose file from bitnami:
 `curl -sSL https://raw.githubusercontent.com/bitnami/bitnami-docker-kafka/master/docker-compose.yml > docker-compose.yml`
+set `KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true`
+
+### 2. setup python environment
+
+basic Dockerfile using `kafka-python` to connect to the running kafka cluster
+reads the sample data using pandas, then randomly selects a record
+to publish to kafka
