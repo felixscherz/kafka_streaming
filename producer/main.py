@@ -18,15 +18,15 @@ def init_producer(connection: str) -> KafkaProducer:
     connected = False
     while not connected:
         try: 
-            print('trying to connect')
+            print('trying to connect to kafka cluster...')
             producer = KafkaProducer(
                 bootstrap_servers=[connection],
                 value_serializer=lambda x: json.dumps(x).encode('utf-8'))
             connected = True
         except NoBrokersAvailable:
             connected = False
-            print("no brokers available yet, retrying in 5s ...")
-            time.sleep(5)
+            print("no brokers available yet, retrying in 3s ...")
+            time.sleep(3)
     print('connection succesfull')
     return producer
 
@@ -48,7 +48,7 @@ def main() -> None:
     event_records = read_example_data(EXAMPLE_DATA_FPATH)
     print('entering publishing loop')
     while True:
-        print('sending event')
+        # print('sending event')
         event = get_sample_event(event_records)
         producer.send(KAFKA_TOPIC, value=event)
         time.sleep(random.random())

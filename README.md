@@ -16,3 +16,9 @@ set `KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true`
 basic Dockerfile using `kafka-python` to connect to the running kafka cluster
 reads the sample data using pandas, then randomly selects a record
 to publish to kafka
+
+### 3. setup pyspark environment for stream processing
+
+imporant to add packages to spark-submit script to enable connection
+to kafka cluster
+query.awaitTermination required
