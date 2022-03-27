@@ -9,10 +9,18 @@
 ## Instructions:
 
 ## Steps
-To start the environment run ```docker-compose up```.
-Then connect to the spark driver by running ```docker-compose exec spark sh```.
+To start the environment run
+```
+docker-compose up
+```.
+Then connect to the spark driver by running
+```
+docker-compose exec spark sh
+```.
 Inside the spark driver we can start the stream processing by running
-```./submit.sh wikipedia_streaming.py```. 
+```
+./submit.sh wikipedia_streaming.py
+```. 
 
 1. setup kafka environment
 2. setup python environment that publishes example data
