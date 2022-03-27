@@ -25,6 +25,17 @@ services:
     depends_on:
       - zookeeper
 
+  producer:
+    build: ./producer
+    environment:
+      - KAFKA_TOPIC=recentchanges
+      - KAFKA_CONNECTION=kafka:9092
+      - EXAMPLE_DATA_FPATH=tmp/data/de_challenge_sample_data.csv
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/tmp/data
+    command: python main.py
+
 volumes:
   zookeeper_data:
     driver: local
