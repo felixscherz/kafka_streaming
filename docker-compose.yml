@@ -32,7 +32,6 @@ services:
       - KAFKA_CONNECTION=kafka:9092
       - EXAMPLE_DATA_FPATH=tmp/data/de_challenge_sample_data.csv
       - PYTHONUNBUFFERED=1
-      - DEBUG=false
     volumes:
       - ./data:/tmp/data
     command: python main.py
@@ -47,6 +46,7 @@ services:
       - SPARK_SSL_ENABLED=no
     volumes:
       - ./jobs:/opt/spark-jobs
+      - spark_data:/tmp/checkpoints
     ports:
       - "8080:8080"
       - "7077:7077"
@@ -73,8 +73,15 @@ services:
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=wikipedia_events
 
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
 volumes:
   zookeeper_data:
     driver: local
   kafka_data:
+    driver: local
+  spark_data:
+    driver: local
+  pg_data:
     driver: local

@@ -9,7 +9,7 @@ if __name__ == '__main__':
         appName('SparkWikipediaStreaming').\
         getOrCreate()
 
-    spark.sparkContext.setLogLevel("ERROR")
+    spark.sparkContext.setLogLevel("WARN")
 
     # lookup foreign key values for regions
     regions = spark.read\
@@ -23,7 +23,6 @@ if __name__ == '__main__':
     german_id = regions.filter(
         regions.region == 'germany').first()["region_id"]
     global_id = regions.filter(regions.region == 'global').first()["region_id"]
-
 
     # message schema as supplied in example data
     jsonschema = StructType().add("$schema", StringType())\
@@ -82,25 +81,34 @@ if __name__ == '__main__':
             .withColumn("time", col("window.start"))\
             .select("time", "count", "region_id")
 
+    print('output schema:')
+    edits.printSchema()
+
+
     # define foreachBatch function to write to postgres database
     def foreach_batch_function(df, epoch_id):
         '''function requires epoch_id to work with foreachBatch method'''
         print("writing to db")
+
         df.write\
-                .mode("overwrite")\
                 .format("jdbc")\
-                .option("truncate", "true")\
                 .option("url", "jdbc:postgresql://postgres:5432/wikipedia_events")\
-                .option("dbtable","events")\
+                .option("truncate", "true")\
+                .option("dbtable","public.events")\
                 .option("user","user")\
                 .option('driver', 'org.postgresql.Driver')\
-                .option("password", "password").save()
+                .option("password", "password")\
+                .mode("overwrite")\
+                .save()
+
 
 
     query_to_db = edits\
             .writeStream\
             .foreachBatch(foreach_batch_function)\
             .outputMode("complete")\
+            .option("truncate", "true")\
+            .option("checkpointLocation", "/tmp/checkpoints/wikipedia_streaming")\
             .start()
 
     query_to_db.awaitTermination()
