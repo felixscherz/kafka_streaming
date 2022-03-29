@@ -9,7 +9,7 @@ if __name__ == '__main__':
         appName('SparkWikipediaStreaming').\
         getOrCreate()
 
-    spark.sparkContext.setLogLevel("WARN")
+    spark.sparkContext.setLogLevel("ERROR")
 
     # lookup foreign key values for regions
     regions = spark.read\
@@ -88,8 +88,9 @@ if __name__ == '__main__':
     # define foreachBatch function to write to postgres database
     def foreach_batch_function(df, epoch_id):
         '''function requires epoch_id to work with foreachBatch method'''
-        print("writing to db")
+        df.show()
 
+        print("writing to db")
         df.write\
                 .format("jdbc")\
                 .option("url", "jdbc:postgresql://postgres:5432/wikipedia_events")\
