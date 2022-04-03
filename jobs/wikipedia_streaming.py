@@ -70,14 +70,15 @@ if __name__ == '__main__':
                   jsonschema).alias("parsed_value"))\
                           .select("parsed_value.*")
 
-    # separate into regions (germany, global) and aggregate over the last minute
+    # separate into regions (germany, other) and aggregate over the last minute
+    # regions that are not explicitly selected are set to null
     edits = parsed\
             .withColumn("is_germany", col("server_name").rlike(r"de\..*"))\
             .groupBy("is_germany", window("timestamp", "1 minute"))\
             .count()\
             .withColumn("region_id",
                     when(col("is_germany") == True, lit(german_id))\
-                    .when(col("is_germany") == False, lit(global_id)))\
+                    .when(col("is_germany") == False, lit(None)))\
             .withColumn("time", col("window.start"))\
             .select("time", "count", "region_id")
 
@@ -88,6 +89,15 @@ if __name__ == '__main__':
     # define foreachBatch function to write to postgres database
     def foreach_batch_function(df, epoch_id):
         '''function requires epoch_id to work with foreachBatch method'''
+        print('before aggregating totals')
+        df.show()
+        df = df.union(
+                df.groupBy("time")\
+                        .sum("count")\
+                        .withColumn("region_id", lit(global_id))
+                )
+        df = df.filter(col("region_id").isNotNull())
+        print('after aggregating totals')
         df.show()
 
         print("writing to db")
